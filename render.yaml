@@ -1,0 +1,68 @@
+services:
+  - type: web
+    name: ironmind-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ironmind-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: ironmind-redis
+          type: redis
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://ironmind-frontend.onrender.com"
+    buildCommand: "pip install -r requirements/production.txt"
+    startCommand: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
+    healthCheckPath: /api/v1/health/
+
+  - type: worker
+    name: ironmind-celery
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ironmind-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: ironmind-redis
+          type: redis
+          property: connectionString
+    startCommand: "celery -A config worker -l info -B"
+
+  - type: web
+    name: ironmind-frontend
+    runtime: static
+    buildCommand: "cd frontend && npm ci && npm run build"
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: "https://ironmind-backend.onrender.com/api/v1"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: ironmind-db
+    databaseName: ironmind
+    plan: free
+
+  - name: ironmind-redis
+    plan: free
