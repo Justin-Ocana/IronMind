@@ -1,59 +1,72 @@
 @echo off
 title IronMind
+chcp 65001 >nul
 
 echo.
-echo  IronMind — Iniciando...
+echo  IronMind — Iniciando en modo local (SQLite + Node)
+echo  ───────────────────────────────────────────────────
 echo.
 
-:: Copiar .env si no existe
-if not exist .env (
-    echo  Creando .env desde .env.example...
-    copy .env.example .env >nul
-    echo  .env creado. Puedes editarlo antes de continuar.
-    echo.
-)
-
-:: Verificar Docker
-docker info >nul 2>&1
+:: ── Verificar Python ──────────────────────────────────────────────────────────
+python --version >nul 2>&1
 if errorlevel 1 (
-    echo  ERROR: Docker no esta corriendo. Abrelo y vuelve a intentarlo.
-    pause
-    exit /b 1
+    echo  ERROR: Python no encontrado. Instala Python 3.11+ y añadelo al PATH.
+    pause & exit /b 1
 )
 
-:: Levantar servicios
-echo  Levantando servicios con Docker Compose...
-echo  (Primera vez puede tardar 2-3 minutos descargando imagenes)
-echo.
-docker compose up --build -d
-
+:: ── Verificar Node ────────────────────────────────────────────────────────────
+node --version >nul 2>&1
 if errorlevel 1 (
-    echo.
-    echo  Error al levantar los servicios. Revisa los logs con:
-    echo    docker compose logs
-    pause
-    exit /b 1
+    echo  ERROR: Node.js no encontrado. Instala Node 20+ y añadelo al PATH.
+    pause & exit /b 1
 )
 
-:: Esperar a que el backend arranque
-echo.
-echo  Esperando a que los servicios esten listos...
-timeout /t 8 /nobreak >nul
+:: ── Entorno virtual Python ────────────────────────────────────────────────────
+if not exist "backend\.venv" (
+    echo  Creando entorno virtual Python...
+    python -m venv backend\.venv
+)
 
-:: Abrir navegador
-echo  Abriendo IronMind en el navegador...
+:: ── Instalar dependencias Python ─────────────────────────────────────────────
+echo  Instalando dependencias Python...
+call backend\.venv\Scripts\activate.bat
+pip install -q -r backend\requirements\base.txt
+
+:: ── Migraciones y seed ────────────────────────────────────────────────────────
+echo  Aplicando migraciones...
+set DJANGO_SETTINGS_MODULE=config.settings.local
+cd backend
+python manage.py migrate --run-syncdb -v 0
+python manage.py seed_exercises -v 0 2>nul
+cd ..
+
+:: ── Instalar dependencias Node ────────────────────────────────────────────────
+if not exist "frontend\node_modules" (
+    echo  Instalando dependencias Node (primera vez, paciencia)...
+    cd frontend & npm install --silent & cd ..
+)
+
+:: ── Abrir backend en nueva ventana ───────────────────────────────────────────
+echo.
+echo  Abriendo Backend...
+start "IronMind — Backend" cmd /k "cd /d "%~dp0backend" && ".venv\Scripts\activate" && set DJANGO_SETTINGS_MODULE=config.settings.local && python manage.py runserver 8000"
+
+:: ── Abrir frontend en nueva ventana ──────────────────────────────────────────
+echo  Abriendo Frontend...
+start "IronMind — Frontend" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+
+:: ── Esperar y abrir navegador ─────────────────────────────────────────────────
+echo.
+echo  Esperando que los servidores arranquen...
+timeout /t 5 /nobreak >nul
 start http://localhost:5173
 
 echo.
-echo  IronMind esta corriendo:
-echo    Frontend : http://localhost:5173
-echo    Backend  : http://localhost:8000/api/v1/
-echo    Admin    : http://localhost:8000/admin/
+echo  IronMind corriendo:
+echo    Frontend  →  http://localhost:5173
+echo    Backend   →  http://localhost:8000/api/v1/
+echo    Admin     →  http://localhost:8000/admin/
 echo.
-echo  Para ver los logs en tiempo real:
-echo    docker compose logs -f
-echo.
-echo  Para parar todo:
-echo    docker compose down
+echo  (Cierra las dos ventanas de terminal para parar)
 echo.
 pause
