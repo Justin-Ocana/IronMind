@@ -1,30 +1,38 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useWorkoutStore } from "@/stores/workoutStore";
 import { api } from "@/lib/api";
 import { formatDuration } from "@/lib/utils";
 import type { WorkoutSession } from "@/types";
 import { queryClient } from "@/lib/queryClient";
 
 interface Props {
+  sessionId: number | undefined;
   onDone: () => void;
 }
 
-export default function WorkoutComplete({ onDone }: Props) {
-  const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
+export default function WorkoutComplete({ sessionId: propSessionId, onDone }: Props) {
   const [feeling, setFeeling] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // Fallback: if prop is undefined, fetch the active (incomplete) session
+  const { data: activeSession } = useQuery<WorkoutSession | null>({
+    queryKey: ["session-active-fallback"],
+    queryFn: () => api.get("/workouts/sessions/active/").then((r) => r.data),
+    enabled: !propSessionId,
+  });
+
+  const sessionId = propSessionId ?? activeSession?.id;
+
   const { data: session } = useQuery<WorkoutSession>({
-    queryKey: ["session", activeWorkout?.session_id],
-    queryFn: () => api.get(`/workouts/sessions/${activeWorkout?.session_id}/`).then((r) => r.data),
-    enabled: !!activeWorkout?.session_id,
+    queryKey: ["session", sessionId],
+    queryFn: () => api.get(`/workouts/sessions/${sessionId}/`).then((r) => r.data),
+    enabled: !!sessionId,
   });
 
   const { mutate: complete, isPending } = useMutation({
     mutationFn: (f: number) =>
-      api.post(`/workouts/sessions/${activeWorkout?.session_id}/complete/`, { feeling: f }),
+      api.post(`/workouts/sessions/${sessionId}/complete/`, { feeling: f }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions-recent"] });
       queryClient.invalidateQueries({ queryKey: ["today"] });

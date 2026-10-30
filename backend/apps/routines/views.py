@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Routine, TrainingDay, RoutineExercise
 from .serializers import RoutineSerializer, TrainingDaySerializer, RoutineExerciseSerializer, TodayScheduleSerializer
+from apps.workouts.models import WorkoutSession
 
 
 class RoutineViewSet(viewsets.ModelViewSet):
@@ -42,13 +43,21 @@ class RoutineViewSet(viewsets.ModelViewSet):
         if not training_day or training_day.is_rest:
             data = {
                 "has_workout": False,
+                "completed_today": False,
                 "training_day": TrainingDaySerializer(training_day).data if training_day else None,
                 "routine_name": routine.name,
                 "week_number": week_number,
             }
         else:
+            completed_today = WorkoutSession.objects.filter(
+                user=request.user,
+                training_day=training_day,
+                is_completed=True,
+                started_at__date=date.today(),
+            ).exists()
             data = {
                 "has_workout": True,
+                "completed_today": completed_today,
                 "training_day": TrainingDaySerializer(training_day).data,
                 "routine_name": routine.name,
                 "week_number": week_number,

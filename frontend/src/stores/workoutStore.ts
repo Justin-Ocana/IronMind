@@ -9,6 +9,7 @@ interface WorkoutState {
 
   startWorkout: (sessionId: number, trainingDay: TrainingDay) => void;
   logSet: (exerciseIndex: number, setIndex: number, reps: number) => void;
+  setWeight: (exerciseIndex: number, weight: number) => void;
   setFeeling: (exerciseIndex: number, feeling: "easy" | "correct" | "hard") => void;
   completeExercise: (exerciseIndex: number) => void;
   nextExercise: () => void;
@@ -26,6 +27,10 @@ export const useWorkoutStore = create<WorkoutState>()(
       restTimerExerciseIndex: null,
 
       startWorkout: (sessionId, trainingDay) => {
+        if (!sessionId) {
+          console.error("[workoutStore] startWorkout called with invalid sessionId:", sessionId);
+          return;
+        }
         const exercises = trainingDay.exercises.map((re) => ({
           routine_exercise: re,
           sets: Array.from({ length: re.sets }, (_, i) => ({
@@ -48,6 +53,18 @@ export const useWorkoutStore = create<WorkoutState>()(
             started_at: new Date().toISOString(),
           },
         });
+      },
+
+      setWeight: (exerciseIndex, weight) => {
+        const w = get().activeWorkout;
+        if (!w) return;
+        const updated = { ...w };
+        updated.exercises = [...w.exercises];
+        updated.exercises[exerciseIndex] = { ...w.exercises[exerciseIndex] };
+        updated.exercises[exerciseIndex].sets = w.exercises[exerciseIndex].sets.map((s) =>
+          s.completed ? s : { ...s, weight_kg: weight }
+        );
+        set({ activeWorkout: updated });
       },
 
       logSet: (exerciseIndex, setIndex, reps) => {
@@ -110,6 +127,16 @@ export const useWorkoutStore = create<WorkoutState>()(
 
       abandonWorkout: () => set({ activeWorkout: null, restTimer: null, restTimerExerciseIndex: null }),
     }),
-    { name: "ironmind-workout" }
+    {
+      name: "ironmind-workout",
+      onRehydrateStorage: () => (state) => {
+        // Clear stale workout if session_id is missing (corrupted state)
+        if (state?.activeWorkout && !state.activeWorkout.session_id) {
+          state.activeWorkout = null;
+          state.restTimer = null;
+          state.restTimerExerciseIndex = null;
+        }
+      },
+    }
   )
 );

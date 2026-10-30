@@ -9,12 +9,13 @@ class SetLogSerializer(serializers.ModelSerializer):
     exercise = ExerciseSerializer(read_only=True)
     exercise_id = serializers.IntegerField(write_only=True)
     routine_exercise_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    workout_session_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = SetLog
         fields = [
             "id", "exercise", "exercise_id", "routine_exercise_id",
-            "set_number", "weight_kg", "reps", "feeling", "completed_at",
+            "workout_session_id", "set_number", "weight_kg", "reps", "feeling", "completed_at",
         ]
         read_only_fields = ["id", "completed_at"]
 
@@ -89,7 +90,8 @@ class WorkoutSessionSerializer(serializers.ModelSerializer):
 class WorkoutSessionCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutSession
-        fields = ["training_day", "started_at"]
+        fields = ["id", "training_day", "started_at"]
+        read_only_fields = ["id"]
 
     def create(self, validated_data):
         validated_data["user"] = self.context["request"].user

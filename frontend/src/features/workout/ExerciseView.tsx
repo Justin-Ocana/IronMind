@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useWorkoutStore } from "@/stores/workoutStore";
@@ -14,7 +14,7 @@ interface Props {
 }
 
 export default function ExerciseView({ exercise, exerciseIndex, sessionId, onComplete }: Props) {
-  const { logSet, setFeeling, completeExercise, nextExercise, startRestTimer } = useWorkoutStore();
+  const { logSet, setWeight, setFeeling, completeExercise, nextExercise, startRestTimer } = useWorkoutStore();
   const re = exercise.routine_exercise;
 
   const completedSets = exercise.sets.filter((s) => s.completed);
@@ -23,8 +23,12 @@ export default function ExerciseView({ exercise, exerciseIndex, sessionId, onCom
   const isLastSet = currentSetIndex === exercise.sets.length - 1;
   const allSetsCompleted = exercise.sets.every((s) => s.completed);
 
-  const [repsInput, setRepsInput] = useState<string>("");
+  const [weightInput, setWeightInput] = useState<string>(
+    currentSet?.weight_kg ? String(currentSet.weight_kg) : ""
+  );
   const [showFeeling, setShowFeeling] = useState(false);
+  // Capture the set number at the moment of save — avoids closure stale value after re-render
+  const pendingSetNumRef = useRef<number>(0);
 
   const { data: history } = useQuery<ExerciseHistory[]>({
     queryKey: ["exercise-history", re.exercise.id],
@@ -34,43 +38,41 @@ export default function ExerciseView({ exercise, exerciseIndex, sessionId, onCom
   const lastSession = history?.[history.length - 1];
 
   const { mutate: saveSet } = useMutation({
-    mutationFn: (payload: { reps: number; feeling?: string }) =>
+    mutationFn: (payload: { reps: number; feeling?: string; setNumber: number }) =>
       api.post("/workouts/sets/", {
-        workout_session: sessionId,
+        workout_session_id: sessionId,
         routine_exercise_id: re.id,
         exercise_id: re.exercise.id,
-        set_number: currentSetIndex + 1,
-        weight_kg: currentSet.weight_kg,
+        set_number: payload.setNumber,
+        weight_kg: parseFloat(weightInput) || 0,
         reps: payload.reps,
         feeling: payload.feeling ?? null,
       }),
   });
 
   function handleSaveSet() {
-    const reps = parseInt(repsInput);
-    if (!reps || reps < 1) return;
+    const weight = parseFloat(weightInput);
+    if (!weight || weight <= 0) return;
+    const reps = re.rep_max;
+    const setNumber = currentSetIndex + 1; // capture before logSet changes state
 
     logSet(exerciseIndex, currentSetIndex, reps);
 
     if (isLastSet) {
+      pendingSetNumRef.current = setNumber;
       setShowFeeling(true);
     } else {
-      saveSet({ reps });
+      saveSet({ reps, setNumber });
       startRestTimer(re.rest_seconds, exerciseIndex);
-      setRepsInput("");
     }
   }
 
   function handleFeeling(feeling: "easy" | "correct" | "hard") {
-    const lastSet = exercise.sets[exercise.sets.length - 1];
-    if (!lastSet.reps) return;
-
     setFeeling(exerciseIndex, feeling);
-    saveSet({ reps: lastSet.reps, feeling });
+    saveSet({ reps: re.rep_max, feeling, setNumber: pendingSetNumRef.current });
     completeExercise(exerciseIndex);
     nextExercise();
     setShowFeeling(false);
-    setRepsInput("");
     onComplete();
   }
 
@@ -146,41 +148,68 @@ export default function ExerciseView({ exercise, exerciseIndex, sessionId, onCom
         )}
       </AnimatePresence>
 
-      {/* Input de reps */}
+      {/* Peso — input principal */}
       {!allSetsCompleted && !showFeeling && currentSet && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
+          className="space-y-6"
         >
-          <div className="text-center">
-            <p className="text-muted-foreground text-sm mb-1">Serie {currentSetIndex + 1} de {re.sets}</p>
-            <p className="text-muted-foreground text-sm">{currentSet.weight_kg} kg</p>
+          <p className="text-center text-muted-foreground text-sm">
+            Serie {currentSetIndex + 1} de {re.sets} · {re.rep_min}–{re.rep_max} reps
+          </p>
+
+          <div className="flex items-center justify-center gap-5">
+            <button
+              onClick={() => {
+                const v = Math.max(0, (parseFloat(weightInput) || 0) - 2.5);
+                setWeightInput(String(v));
+                setWeight(exerciseIndex, v);
+              }}
+              className="w-12 h-12 rounded-full bg-secondary text-white text-2xl font-bold flex items-center justify-center active:opacity-60"
+            >−</button>
+
+            <div className="flex items-end gap-1">
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                value={weightInput}
+                onChange={(e) => {
+                  setWeightInput(e.target.value);
+                  const v = parseFloat(e.target.value);
+                  if (!isNaN(v)) setWeight(exerciseIndex, v);
+                }}
+                placeholder="0"
+                className="text-center text-7xl font-bold text-white bg-transparent border-none outline-none w-44 tabular-nums"
+                style={{ caretColor: "white" }}
+              />
+              <span className="text-2xl font-semibold text-muted-foreground pb-2">kg</span>
+            </div>
+
+            <button
+              onClick={() => {
+                const v = (parseFloat(weightInput) || 0) + 2.5;
+                setWeightInput(String(v));
+                setWeight(exerciseIndex, v);
+              }}
+              className="w-12 h-12 rounded-full bg-secondary text-white text-2xl font-bold flex items-center justify-center active:opacity-60"
+            >+</button>
           </div>
 
-          <div className="flex flex-col items-center gap-6">
-            <input
-              type="number"
-              inputMode="numeric"
-              value={repsInput}
-              onChange={(e) => setRepsInput(e.target.value)}
-              placeholder={String(re.rep_max)}
-              className="text-center text-7xl font-bold text-white bg-transparent border-none outline-none w-full tabular-nums"
-              style={{ caretColor: "white" }}
-            />
-
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={handleSaveSet}
-              disabled={!repsInput}
-              className={cn(
-                "w-full rounded-3xl py-5 text-xl font-bold transition-all",
-                repsInput ? "bg-white text-black" : "bg-card border border-border text-muted-foreground"
-              )}
-            >
-              {isLastSet ? "Terminar ejercicio" : "Guardar serie"}
-            </motion.button>
-          </div>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={handleSaveSet}
+            disabled={!weightInput || parseFloat(weightInput) <= 0}
+            className={cn(
+              "w-full rounded-3xl py-5 text-xl font-bold transition-all",
+              weightInput && parseFloat(weightInput) > 0
+                ? "bg-white text-black"
+                : "bg-card border border-border text-muted-foreground"
+            )}
+          >
+            {isLastSet ? "Terminar ejercicio" : "Guardar serie"}
+          </motion.button>
         </motion.div>
       )}
     </div>

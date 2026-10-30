@@ -51,3 +51,6 @@ htmlcov/
 
 # Uploads
 uploads/
+
+# Local seed scripts with personal data
+backend/seed_*.py

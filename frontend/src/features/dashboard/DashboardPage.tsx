@@ -32,32 +32,46 @@ export default function DashboardPage() {
 
       {/* Workout del día */}
       {today?.has_workout && today.training_day ? (
-        <motion.button
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          onClick={() => navigate(activeWorkout ? "/workout/active" : "/workout")}
-          className="w-full bg-white text-black rounded-3xl p-6 flex items-center justify-between active:scale-[0.98] transition-transform"
-        >
-          <div className="text-left">
-            <p className="text-xs font-semibold text-black/50 uppercase tracking-widest mb-1">
+        today.completed_today ? (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full bg-card border border-border rounded-3xl p-6"
+          >
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">
               {today.routine_name} · Semana {today.week_number}
             </p>
-            <p className="text-3xl font-bold">{today.training_day.name}</p>
-            <p className="text-sm text-black/60 mt-1">
-              {today.training_day.exercises.length} ejercicios
-            </p>
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            {activeWorkout ? (
-              <>
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-xs font-semibold text-black/60">Activo</span>
-              </>
-            ) : (
-              <ChevronRight size={24} className="text-black/40" />
-            )}
-          </div>
-        </motion.button>
+            <p className="text-3xl font-bold text-white">{today.training_day.name}</p>
+            <p className="text-sm text-green-400 mt-2 font-semibold">Completado hoy ✓</p>
+          </motion.div>
+        ) : (
+          <motion.button
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => navigate(activeWorkout ? "/workout/active" : "/workout")}
+            className="w-full bg-white text-black rounded-3xl p-6 flex items-center justify-between active:scale-[0.98] transition-transform"
+          >
+            <div className="text-left">
+              <p className="text-xs font-semibold text-black/50 uppercase tracking-widest mb-1">
+                {today.routine_name} · Semana {today.week_number}
+              </p>
+              <p className="text-3xl font-bold">{today.training_day.name}</p>
+              <p className="text-sm text-black/60 mt-1">
+                {today.training_day.exercises.length} ejercicios
+              </p>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              {activeWorkout ? (
+                <>
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-xs font-semibold text-black/60">Activo</span>
+                </>
+              ) : (
+                <ChevronRight size={24} className="text-black/40" />
+              )}
+            </div>
+          </motion.button>
+        )
       ) : (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -85,8 +99,8 @@ export default function DashboardPage() {
             {weightStats?.current ? formatWeight(weightStats.current, unit) : "—"}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {weightStats?.change_7d
-              ? `${parseFloat(weightStats.change_7d) >= 0 ? "+" : ""}${parseFloat(weightStats.change_7d).toFixed(1)} kg esta semana`
+            {weightStats?.change != null
+              ? `${parseFloat(String(weightStats.change)) >= 0 ? "+" : ""}${parseFloat(String(weightStats.change)).toFixed(1)} kg vs anterior`
               : "Peso corporal"}
           </p>
         </motion.button>

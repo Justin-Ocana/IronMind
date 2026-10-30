@@ -25,18 +25,24 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(interval);
   }, [restTimer, tickRestTimer]);
 
+  useEffect(() => {
+    if (!activeWorkout) navigate("/workout", { replace: true });
+  }, [activeWorkout, navigate]);
+
   const [showComplete, setShowComplete] = useState(false);
 
-  if (!activeWorkout) {
-    navigate("/workout", { replace: true });
-    return null;
-  }
+  if (!activeWorkout) return null;
 
   const currentEx = activeWorkout.exercises[activeWorkout.current_exercise_index];
   const allDone = activeWorkout.exercises.every((e) => e.completed);
 
   if (showComplete || allDone) {
-    return <WorkoutComplete onDone={() => { abandonWorkout(); navigate("/", { replace: true }); }} />;
+    return (
+      <WorkoutComplete
+        sessionId={activeWorkout.session_id}
+        onDone={() => { abandonWorkout(); navigate("/", { replace: true }); }}
+      />
+    );
   }
 
   return (

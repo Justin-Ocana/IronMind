@@ -42,6 +42,7 @@ class RoutineSerializer(serializers.ModelSerializer):
 
 class TodayScheduleSerializer(serializers.Serializer):
     has_workout = serializers.BooleanField()
+    completed_today = serializers.BooleanField(default=False)
     training_day = TrainingDaySerializer(allow_null=True)
     routine_name = serializers.CharField(allow_null=True)
     week_number = serializers.IntegerField()

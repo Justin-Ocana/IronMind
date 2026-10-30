@@ -5,7 +5,14 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import type { BodyWeight, BodyWeightStats, BodyMeasurement } from "@/types";
+import type { BodyWeight, BodyMeasurement } from "@/types";
+
+interface BodyWeightStats {
+  current: string | null;
+  previous: string | null;
+  change: string | null;
+  days_since: number | null;
+}
 import { formatDate } from "@/lib/utils";
 
 export default function BodyPage() {
@@ -74,13 +81,21 @@ function WeightTab() {
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-card border border-border rounded-2xl p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Actual</p>
-          <p className="text-3xl font-bold text-white">{stats?.current ?? "—"} kg</p>
+          <p className="text-3xl font-bold text-white">{stats?.current ? `${parseFloat(stats.current).toFixed(1)}` : "—"} kg</p>
         </div>
         <div className="bg-card border border-border rounded-2xl p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">7 días</p>
-          <p className={`text-3xl font-bold ${stats?.change_7d && parseFloat(stats.change_7d) >= 0 ? "text-green-400" : "text-red-400"}`}>
-            {stats?.change_7d ? `${parseFloat(stats.change_7d) >= 0 ? "+" : ""}${parseFloat(stats.change_7d).toFixed(1)}` : "—"} kg
+          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+            {stats?.days_since != null
+              ? stats.days_since === 1 ? "vs ayer" : stats.days_since < 7 ? `vs hace ${stats.days_since}d` : stats.days_since < 30 ? `vs hace ${Math.round(stats.days_since / 7)}sem` : `vs hace ${Math.round(stats.days_since / 30)}mes`
+              : "Cambio"}
           </p>
+          {stats?.change != null ? (
+            <p className={`text-3xl font-bold ${parseFloat(stats.change) >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {parseFloat(stats.change) >= 0 ? "+" : ""}{parseFloat(stats.change).toFixed(1)} kg
+            </p>
+          ) : (
+            <p className="text-3xl font-bold text-muted-foreground">—</p>
+          )}
         </div>
       </div>
 
@@ -127,14 +142,30 @@ function WeightTab() {
       </div>
 
       {/* History list */}
-      <div className="space-y-2">
-        {(history ?? []).slice(0, 10).map((w) => (
-          <div key={w.id} className="flex justify-between items-center bg-card border border-border rounded-xl px-5 py-3">
-            <span className="text-muted-foreground text-sm">{formatDate(w.date)}</span>
-            <span className="text-white font-semibold">{w.weight_kg} kg</span>
+      {(history ?? []).length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Historial</p>
+          <div className="space-y-2">
+            {(history ?? []).map((w, i, arr) => {
+              const prev = arr[i + 1];
+              const delta = prev ? parseFloat(w.weight_kg) - parseFloat(prev.weight_kg) : null;
+              return (
+                <div key={w.id} className="flex justify-between items-center bg-card border border-border rounded-xl px-5 py-3">
+                  <span className="text-muted-foreground text-sm">{formatDate(w.date)}</span>
+                  <div className="flex items-center gap-3">
+                    {delta !== null && (
+                      <span className={`text-xs font-medium ${delta > 0 ? "text-green-400" : delta < 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                        {delta > 0 ? "+" : ""}{delta.toFixed(1)}
+                      </span>
+                    )}
+                    <span className="text-white font-semibold">{parseFloat(w.weight_kg).toFixed(1)} kg</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

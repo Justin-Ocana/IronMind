@@ -21,6 +21,17 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
             return WorkoutSessionCreateSerializer
         return WorkoutSessionSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = WorkoutSessionCreateSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        serializer.is_valid(raise_exception=True)
+        session = serializer.save()
+        return Response(
+            WorkoutSessionSerializer(session).data,
+            status=status.HTTP_201_CREATED,
+        )
+
     @action(detail=True, methods=["post"])
     def complete(self, request, pk=None):
         session = self.get_object()

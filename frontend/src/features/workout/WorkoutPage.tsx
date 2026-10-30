@@ -19,9 +19,13 @@ export default function WorkoutPage() {
         started_at: new Date().toISOString(),
       }).then((r) => r.data),
     onSuccess: (session) => {
-      if (today?.training_day) {
-        startWorkout(session.id, today.training_day);
+      console.log("[WorkoutPage] session created:", session?.id, session);
+      const id = session?.id;
+      if (today?.training_day && id) {
+        startWorkout(id, today.training_day);
         navigate("/workout/active");
+      } else {
+        console.error("[WorkoutPage] session.id missing:", session);
       }
     },
   });
@@ -52,6 +56,19 @@ export default function WorkoutPage() {
           <h1 className="text-3xl font-bold text-white">Descanso</h1>
         </div>
         <p className="text-muted-foreground">Hoy toca descansar. Aprovecha para recuperarte.</p>
+      </div>
+    );
+  }
+
+  if (today.completed_today) {
+    return (
+      <div className="px-5 pt-14 pb-6 max-w-lg mx-auto">
+        <div className="mb-8">
+          <p className="text-muted-foreground text-sm">{today.routine_name} · Semana {today.week_number}</p>
+          <h1 className="text-4xl font-bold text-white">{today.training_day.name}</h1>
+        </div>
+        <p className="text-green-400 font-semibold text-lg">Completado hoy ✓</p>
+        <p className="text-muted-foreground mt-2">Buen trabajo. Vuelve mañana.</p>
       </div>
     );
   }

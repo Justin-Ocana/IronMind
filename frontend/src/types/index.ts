@@ -70,6 +70,7 @@ export interface Routine {
 
 export interface TodaySchedule {
   has_workout: boolean;
+  completed_today: boolean;
   training_day: TrainingDay | null;
   routine_name: string | null;
   week_number: number;

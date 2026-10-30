@@ -19,24 +19,23 @@ class BodyWeightViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def stats(self, request):
-        qs = self.get_queryset()
-        today = date.today()
+        qs = self.get_queryset().order_by("-date")
 
         latest = qs.first()
-        week_ago = qs.filter(date__lte=today - timedelta(days=7)).first()
-        month_ago = qs.filter(date__lte=today - timedelta(days=30)).first()
-        weekly_avg = qs.filter(date__gte=today - timedelta(days=7)).aggregate(avg=Avg("weight_kg"))["avg"]
-        monthly_avg = qs.filter(date__gte=today - timedelta(days=30)).aggregate(avg=Avg("weight_kg"))["avg"]
+        previous = qs[1] if qs.count() >= 2 else None
 
         current = Decimal(str(latest.weight_kg)) if latest else None
+        prev_weight = Decimal(str(previous.weight_kg)) if previous else None
+
+        days_since = (latest.date - previous.date).days if latest and previous else None
+
         data = {
             "current": current,
-            "change_7d": (current - Decimal(str(week_ago.weight_kg))) if current and week_ago else None,
-            "change_30d": (current - Decimal(str(month_ago.weight_kg))) if current and month_ago else None,
-            "weekly_avg": Decimal(str(weekly_avg)).quantize(Decimal("0.01")) if weekly_avg else None,
-            "monthly_avg": Decimal(str(monthly_avg)).quantize(Decimal("0.01")) if monthly_avg else None,
+            "previous": prev_weight,
+            "change": (current - prev_weight) if current and prev_weight else None,
+            "days_since": days_since,
         }
-        return Response(BodyWeightStatsSerializer(data).data)
+        return Response(data)
 
 
 class BodyMeasurementViewSet(viewsets.ModelViewSet):
